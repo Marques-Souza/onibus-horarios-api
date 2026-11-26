@@ -1,5 +1,6 @@
 package com.marques.onibus_horarios_api.infrastructure.persistence.repository;
 
+import com.marques.onibus_horarios_api.domain.model.Linha;
 import com.marques.onibus_horarios_api.infrastructure.persistence.entity.LinhaEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +21,8 @@ public interface LinhaJpaRepository extends JpaRepository<LinhaEntity, UUID> {
     Optional<LinhaEntity> findByIdAndActiveTrue(UUID id);
 
     List<LinhaEntity> findAllByActiveTrue();
+
+    Optional<LinhaEntity> findByCodigo(String codigo);
 
     @Query("""
         SELECT l FROM LinhaEntity l

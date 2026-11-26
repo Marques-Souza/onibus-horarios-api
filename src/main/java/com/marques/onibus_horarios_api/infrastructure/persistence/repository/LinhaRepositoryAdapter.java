@@ -58,6 +58,12 @@ public class LinhaRepositoryAdapter implements LinhaRepository {
     }
 
     @Override
+    public Optional<Linha> findByCodigo(String codigo) {
+        return linhaJpaRepository.findByCodigo(codigo)
+                .map(linhaPersistenceMapper::toDomain);
+    }
+
+    @Override
     public Pagina<Linha> buscarAtivas(
             String bairroOrigem,
             String terminalDestino,

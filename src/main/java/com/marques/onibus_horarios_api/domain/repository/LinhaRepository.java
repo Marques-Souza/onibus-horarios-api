@@ -19,6 +19,8 @@ public interface LinhaRepository {
 
     List<Linha> findAllByActiveTrue();
 
+    Optional<Linha> findByCodigo(String codigo);
+
     Pagina<Linha> buscarAtivas(
             String bairroOrigem,
             String terminalDestino,
