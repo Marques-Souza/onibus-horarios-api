@@ -1,0 +1,13 @@
+package com.marques.onibus_horarios_api;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class OnibusHorariosApiApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(OnibusHorariosApiApplication.class, args);
+	}
+
+}
