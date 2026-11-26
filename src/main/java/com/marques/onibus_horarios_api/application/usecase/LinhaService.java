@@ -3,6 +3,7 @@ package com.marques.onibus_horarios_api.application.usecase;
 import com.marques.onibus_horarios_api.application.dto.LinhaRequest;
 import com.marques.onibus_horarios_api.application.dto.LinhaResponse;
 import com.marques.onibus_horarios_api.domain.model.Linha;
+import com.marques.onibus_horarios_api.domain.model.Pagina;
 import com.marques.onibus_horarios_api.domain.repository.LinhaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,11 +45,31 @@ public class LinhaService {
     }
 
     @Transactional(readOnly = true)
-    public List<LinhaResponse> listarAtivas() {
-        return linhaRepository.findAllByActiveTrue()
+    public Pagina<LinhaResponse> listarAtivas(
+            String bairroOrigem,
+            String terminalDestino,
+            int pagina,
+            int tamanho
+    ) {
+        Pagina<Linha> resultado = linhaRepository.buscarAtivas(
+                bairroOrigem,
+                terminalDestino,
+                pagina,
+                tamanho
+        );
+
+        List<LinhaResponse> linhas = resultado.conteudo()
                 .stream()
                 .map(LinhaResponse::from)
                 .toList();
+
+        return new Pagina<>(
+                linhas,
+                resultado.numero(),
+                resultado.tamanho(),
+                resultado.totalElementos(),
+                resultado.totalPaginas()
+        );
     }
 
     public LinhaResponse atualizar(UUID id, LinhaRequest request) {

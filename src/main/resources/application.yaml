@@ -2,7 +2,7 @@ spring:
   application:
     name: onibus-horarios-api
   datasource:
-    url: jdbc:postgresql://localhost:5455/onibus
+    url: jdbc:postgresql://localhost:5455/onibus_db
     username: ${DB_USER}
     password: ${DB_PASSWORD}
   jpa:

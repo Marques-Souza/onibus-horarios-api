@@ -6,18 +6,12 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
 @Table(name = "linha")
-@Getter
-@Setter
-@NoArgsConstructor
 public class LinhaEntity {
 
     @Id
@@ -44,4 +38,71 @@ public class LinhaEntity {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    public LinhaEntity() {
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public String getCodigo() {
+        return codigo;
+    }
+
+    public void setCodigo(String codigo) {
+        this.codigo = codigo;
+    }
+
+    public String getNome() {
+        return nome;
+    }
+
+    public void setNome(String nome) {
+        this.nome = nome;
+    }
+
+    public String getBairroOrigem() {
+        return bairroOrigem;
+    }
+
+    public void setBairroOrigem(String bairroOrigem) {
+        this.bairroOrigem = bairroOrigem;
+    }
+
+    public String getTerminalDestino() {
+        return terminalDestino;
+    }
+
+    public void setTerminalDestino(String terminalDestino) {
+        this.terminalDestino = terminalDestino;
+    }
+
+    public String getOperadora() {
+        return operadora;
+    }
+
+    public void setOperadora(String operadora) {
+        this.operadora = operadora;
+    }
+
+    public BigDecimal getTarifa() {
+        return tarifa;
+    }
+
+    public void setTarifa(BigDecimal tarifa) {
+        this.tarifa = tarifa;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
 }

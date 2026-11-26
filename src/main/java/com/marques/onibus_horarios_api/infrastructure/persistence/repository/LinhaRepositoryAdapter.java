@@ -1,8 +1,12 @@
 package com.marques.onibus_horarios_api.infrastructure.persistence.repository;
 
 import com.marques.onibus_horarios_api.domain.model.Linha;
+import com.marques.onibus_horarios_api.domain.model.Pagina;
 import com.marques.onibus_horarios_api.domain.repository.LinhaRepository;
+import com.marques.onibus_horarios_api.infrastructure.persistence.entity.LinhaEntity;
 import com.marques.onibus_horarios_api.infrastructure.persistence.mapper.LinhaPersistenceMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -51,5 +55,32 @@ public class LinhaRepositoryAdapter implements LinhaRepository {
                 .stream()
                 .map(linhaPersistenceMapper::toDomain)
                 .toList();
+    }
+
+    @Override
+    public Pagina<Linha> buscarAtivas(
+            String bairroOrigem,
+            String terminalDestino,
+            int pagina,
+            int tamanho
+    ){
+        Page<LinhaEntity> resultado = linhaJpaRepository.buscarAtivas(
+                bairroOrigem,
+                terminalDestino,
+                PageRequest.of(pagina, tamanho)
+        );
+
+        List<Linha> linhas = resultado.getContent()
+                .stream()
+                .map(linhaPersistenceMapper::toDomain)
+                .toList();
+
+        return new Pagina<>(
+                linhas,
+                resultado.getNumber(),
+                resultado.getSize(),
+                resultado.getTotalElements(),
+                resultado.getTotalPages()
+        );
     }
 }

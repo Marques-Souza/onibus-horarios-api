@@ -3,19 +3,14 @@ package com.marques.onibus_horarios_api.presentation.controller;
 import com.marques.onibus_horarios_api.application.dto.LinhaRequest;
 import com.marques.onibus_horarios_api.application.dto.LinhaResponse;
 import com.marques.onibus_horarios_api.application.usecase.LinhaService;
+import com.marques.onibus_horarios_api.domain.model.Pagina;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -37,8 +32,15 @@ public class LinhaController {
     }
 
     @GetMapping
-    public ResponseEntity<List<LinhaResponse>> listar() {
-        return ResponseEntity.ok(linhaService.listarAtivas());
+    public ResponseEntity<Pagina<LinhaResponse>> listar(
+            @RequestParam(required = false) String bairroOrigem,
+            @RequestParam(required = false) String terminalDestino,
+            @RequestParam(defaultValue = "0") @Min(0) int pagina,
+            @RequestParam(defaultValue = "10") @Min(1) @Max(100) int tamanho
+    ) {
+        return ResponseEntity.ok(
+                linhaService.listarAtivas(bairroOrigem, terminalDestino, pagina, tamanho)
+        );
     }
 
     @GetMapping("/{id}")
