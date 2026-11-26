@@ -33,7 +33,7 @@ public class LinhaEntity {
     @Column(nullable = false, length = 100)
     private String operadora;
 
-    @Column(nullable = false, precision = 8, scale = 2)
+    @Column(precision = 8, scale = 2)
     private BigDecimal tarifa;
 
     @Column(nullable = false)

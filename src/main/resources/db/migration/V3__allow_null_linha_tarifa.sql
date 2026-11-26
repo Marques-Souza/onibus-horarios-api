@@ -1,0 +1,2 @@
+ALTER TABLE linha
+    ALTER COLUMN tarifa DROP NOT NULL;
