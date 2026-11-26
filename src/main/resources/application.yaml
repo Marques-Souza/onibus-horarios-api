@@ -1,3 +1,16 @@
 spring:
   application:
     name: onibus-horarios-api
+  datasource:
+    url: jdbc:postgresql://localhost:5455/onibus
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+serve: 8087
