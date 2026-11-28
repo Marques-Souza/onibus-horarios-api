@@ -28,6 +28,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -79,7 +80,15 @@ class LinhaControllerIntegrationTest {
                                   "tarifa": 0
                                 }
                                 """))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("A requisição contém campos inválidos."))
+                .andExpect(jsonPath("$.errors.codigo").exists())
+                .andExpect(jsonPath("$.errors.nome").exists())
+                .andExpect(jsonPath("$.errors.bairroOrigem").exists())
+                .andExpect(jsonPath("$.errors.terminalDestino").exists())
+                .andExpect(jsonPath("$.errors.operadora").exists())
+                .andExpect(jsonPath("$.errors.tarifa").exists());
     }
 
     @Test
@@ -107,7 +116,10 @@ class LinhaControllerIntegrationTest {
         mockMvc.perform(post("/api/v1/linhas")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requisicaoLinha("2001", "Linha protegida")))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.detail").value("Autenticação necessária."));
     }
 
     @Test
@@ -116,7 +128,10 @@ class LinhaControllerIntegrationTest {
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requisicaoLinha("2001", "Linha protegida")))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isForbidden())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Acesso negado."));
     }
 
     @Test
@@ -165,7 +180,9 @@ class LinhaControllerIntegrationTest {
                         .content("""
                                 {"username":"test-admin","password":"wrong-password"}
                                 """))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.detail").value("Credenciais inválidas."));
     }
 
     @Test
@@ -188,7 +205,37 @@ class LinhaControllerIntegrationTest {
         mockMvc.perform(multipart("/api/v1/admin/importacoes/antt")
                         .file(arquivo)
                         .with(adminJwt()))
-                .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.status").value(422))
+        .andExpect(jsonPath("$.detail").value(
+                "O CSV não contém registros de rotas com origem em Águas Lindas de Goiás."
+        ));
+    }
+
+    @Test
+    void deveRetornar400ComNumeroDaLinhaQuandoHorarioCsvForInvalido() throws Exception {
+        String csv = """
+        Informativo 1
+        Informativo 2
+        Informativo 3
+        Informativo 4
+        Empresa;Prefixo;Localidade;Codigo;Nome;Sentido;Horario;Dias uteis;Sabado;Domingo;Extra
+        Operadora;123;AGUAS LINDAS DE GOIAS/GO-BRASILIA/DF;2001;Linha teste;SENTIDO GO-DF;25:70;1;0;0;-
+        """;
+        MockMultipartFile arquivo = new MockMultipartFile(
+        "arquivo",
+        "linhas-invalidas.csv",
+        "text/csv",
+        csv.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        );
+
+        mockMvc.perform(multipart("/api/v1/admin/importacoes/antt")
+                .file(arquivo)
+                .with(adminJwt()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.detail")
+                .value("Horário inválido na linha 6 do CSV: '25:70'. Use o formato H:mm ou HH:mm."));
     }
 
     @Test
@@ -197,7 +244,29 @@ class LinhaControllerIntegrationTest {
 
         mockMvc.perform(get("/api/v1/linhas/{id}", idInexistente))
                 .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.detail").value("Linha não encontrada."));
+    }
+
+    @Test
+    void deveRetornar400ComProblemDetailParaJsonMalformado() throws Exception {
+        mockMvc.perform(post("/api/v1/linhas")
+                        .with(adminJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("O corpo da requisição é inválido."));
+    }
+
+    @Test
+    void deveRetornar400ComProblemDetailParaFiltroEnumeradoInvalido() throws Exception {
+        mockMvc.perform(get("/api/v1/horarios/proximas-saidas")
+                        .queryParam("destino", "BRASILIA")
+                        .queryParam("sentido", "DIRETO"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Parâmetro inválido: sentido."));
     }
 
     @Test

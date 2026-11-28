@@ -5,6 +5,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -21,6 +24,7 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
 import java.util.Base64;
 
 @Configuration
@@ -40,6 +44,22 @@ public class JwtSecurityConfiguration {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, exception) ->
+                                escreverProblema(
+                                        response,
+                                        HttpStatus.UNAUTHORIZED,
+                                        "Autenticação necessária."
+                                )
+                        )
+                        .accessDeniedHandler((request, response, exception) ->
+                                escreverProblema(
+                                        response,
+                                        HttpStatus.FORBIDDEN,
+                                        "Acesso negado."
+                                )
+                        )
+                )
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/linhas", "/api/v1/linhas/**").permitAll()
@@ -55,6 +75,21 @@ public class JwtSecurityConfiguration {
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(authenticationConverter))
                 )
                 .build();
+    }
+
+    private void escreverProblema(
+            jakarta.servlet.http.HttpServletResponse response,
+            HttpStatus status,
+            String detalhe
+    ) throws IOException {
+        response.setStatus(status.value());
+        response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+        String title = status.getReasonPhrase();
+        response.getWriter().write(
+                "{\"type\":\"about:blank\",\"title\":\"" + title
+                        + "\",\"status\":" + status.value()
+                        + ",\"detail\":\"" + detalhe + "\"}"
+        );
     }
 
     @Bean

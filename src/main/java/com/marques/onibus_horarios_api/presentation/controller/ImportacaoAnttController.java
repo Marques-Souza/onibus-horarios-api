@@ -1,15 +1,14 @@
 package com.marques.onibus_horarios_api.presentation.controller;
 
 import com.marques.onibus_horarios_api.application.dto.importacao.ResultadoImportacaoAntt;
+import com.marques.onibus_horarios_api.application.exception.ErroDeImportacaoException;
 import com.marques.onibus_horarios_api.application.usecase.ImportarDadosAnttService;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 
@@ -26,14 +25,13 @@ public class ImportacaoAnttController {
     @PostMapping("/antt")
     public ResponseEntity<ResultadoImportacaoAntt> importar(@RequestParam("arquivo") MultipartFile arquivo) {
         if (arquivo.isEmpty()) {
-            throw new IllegalArgumentException("O arquivo CSV não pode estar vazio.");
+            throw new ErroDeImportacaoException("O arquivo CSV não pode estar vazio.");
         }
 
         try (var inputStream = arquivo.getInputStream()) {
             return ResponseEntity.ok(importarDadosAnttService.importar(inputStream));
         } catch (IOException exception) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
+            throw new ErroDeImportacaoException(
                     "Não foi possível ler o arquivo CSV enviado.",
                     exception
             );

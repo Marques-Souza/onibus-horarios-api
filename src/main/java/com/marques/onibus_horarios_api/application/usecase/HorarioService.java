@@ -6,6 +6,8 @@ import com.marques.onibus_horarios_api.application.dto.HorariosBuscaResponse;
 import com.marques.onibus_horarios_api.application.dto.HorariosLinhaResponse;
 import com.marques.onibus_horarios_api.application.dto.ProximasSaidasResponse;
 import com.marques.onibus_horarios_api.application.dto.LinhaResponse;
+import com.marques.onibus_horarios_api.application.exception.BuscaDeHorarioInvalidaException;
+import com.marques.onibus_horarios_api.domain.exception.LinhaNaoEncontradaException;
 import com.marques.onibus_horarios_api.domain.model.Linha;
 import com.marques.onibus_horarios_api.domain.model.HorarioDaLinha;
 import com.marques.onibus_horarios_api.domain.model.Sentido;
@@ -21,7 +23,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @Service
@@ -45,7 +46,7 @@ public class HorarioService {
             TipoDia tipoDia
     ) {
         Linha linha = linhaRepository.findByIdAndActiveTrue(linhaId)
-                .orElseThrow(() -> new NoSuchElementException("Linha não encontrada."));
+                .orElseThrow(LinhaNaoEncontradaException::new);
 
         List<HorarioResponse> horarios = horarioRepository.buscarAtivosPorLinha(linhaId, sentido, tipoDia)
                 .stream()
@@ -166,7 +167,7 @@ public class HorarioService {
     ) {
         if (estaVazio(origem) && estaVazio(destino)
                 && estaVazio(codigoLinha) && estaVazio(bairroOrigem)) {
-            throw new IllegalArgumentException(
+            throw new BuscaDeHorarioInvalidaException(
                     "Informe origem, destino, código da linha ou bairro de origem para pesquisar."
             );
         }

@@ -1,6 +1,7 @@
 package com.marques.onibus_horarios_api.application.mapper.importacao;
 
 import com.marques.onibus_horarios_api.application.dto.importacao.AnttHorarioCsv;
+import com.marques.onibus_horarios_api.application.exception.ErroDeImportacaoException;
 import com.marques.onibus_horarios_api.domain.model.TipoDia;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +28,7 @@ class AnttHorarioMapperTest {
     @Test
     void deveInformarNumeroDaLinhaQuandoHorarioForInvalido() {
         var exception = assertThrows(
-                IllegalArgumentException.class,
+                ErroDeImportacaoException.class,
                 () -> mapper.toDomain(registro("25:70", 18), UUID.randomUUID())
         );
 

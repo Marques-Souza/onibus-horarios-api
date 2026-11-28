@@ -1,6 +1,7 @@
 package com.marques.onibus_horarios_api.application.mapper.importacao;
 
 import com.marques.onibus_horarios_api.application.dto.importacao.AnttHorarioCsv;
+import com.marques.onibus_horarios_api.application.exception.ErroDeImportacaoException;
 import com.marques.onibus_horarios_api.domain.model.Linha;
 import org.springframework.stereotype.Component;
 
@@ -25,7 +26,7 @@ public class AnttLinhaMapper {
                 registro.codigoLinha().trim(),
                 registro.nomeLinha().trim(),
                 extrairBairro(registro.nomeLinha()),
-                extrairTerminal(registro.localidadeOrigemDestino()),
+                extrairTerminal(registro.localidadeOrigemDestino(), registro.numeroLinhaCsv()),
                 registro.empresa().trim(),
                 existente == null ? null : existente.tarifa(),
                 existente == null || existente.active()
@@ -59,18 +60,20 @@ public class AnttLinhaMapper {
         return valor.equalsIgnoreCase("GO") || valor.equalsIgnoreCase("DF");
     }
 
-    private String extrairTerminal(String localidade) {
+    private String extrairTerminal(String localidade, long numeroLinhaCsv) {
         String[] trechos = localidade.split("-", 2);
         if (trechos.length < 2) {
-            throw new IllegalArgumentException(
-                    "Localidade de origem e destino inválida: " + localidade
+            throw new ErroDeImportacaoException(
+                    "Localidade de origem e destino inválida na linha " + numeroLinhaCsv
+                            + " do CSV: " + localidade
             );
         }
 
         String destino = trechos[1].split("/", 2)[0].trim();
         if (destino.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Destino não informado na localidade: " + localidade
+            throw new ErroDeImportacaoException(
+                    "Destino não informado na localidade na linha " + numeroLinhaCsv
+                            + " do CSV: " + localidade
             );
         }
 

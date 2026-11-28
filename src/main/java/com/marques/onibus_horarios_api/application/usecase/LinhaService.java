@@ -2,6 +2,8 @@ package com.marques.onibus_horarios_api.application.usecase;
 
 import com.marques.onibus_horarios_api.application.dto.LinhaRequest;
 import com.marques.onibus_horarios_api.application.dto.LinhaResponse;
+import com.marques.onibus_horarios_api.domain.exception.CodigoDeLinhaDuplicadoException;
+import com.marques.onibus_horarios_api.domain.exception.LinhaNaoEncontradaException;
 import com.marques.onibus_horarios_api.domain.model.Linha;
 import com.marques.onibus_horarios_api.domain.model.Pagina;
 import com.marques.onibus_horarios_api.domain.repository.LinhaRepository;
@@ -9,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @Service
@@ -97,18 +98,18 @@ public class LinhaService {
 
     private Linha buscarLinhaAtiva(UUID id) {
         return linhaRepository.findByIdAndActiveTrue(id)
-                .orElseThrow(() -> new NoSuchElementException("Linha não encontrada."));
+                .orElseThrow(LinhaNaoEncontradaException::new);
     }
 
     private void validarCodigoDisponivel(String codigo) {
         if (linhaRepository.existsByCodigo(codigo)) {
-            throw new IllegalStateException("Já existe uma linha cadastrada com o código: " + codigo);
+            throw new CodigoDeLinhaDuplicadoException(codigo);
         }
     }
 
     private void validarCodigoDisponivelParaAtualizacao(String codigo, UUID id) {
         if (linhaRepository.existsByCodigoAndIdNot(codigo, id)) {
-            throw new IllegalStateException("Já existe uma linha cadastrada com o código: " + codigo);
+            throw new CodigoDeLinhaDuplicadoException(codigo);
         }
     }
 }

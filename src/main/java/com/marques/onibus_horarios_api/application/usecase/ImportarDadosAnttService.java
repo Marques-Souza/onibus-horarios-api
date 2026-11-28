@@ -2,16 +2,16 @@ package com.marques.onibus_horarios_api.application.usecase;
 
 import com.marques.onibus_horarios_api.application.dto.importacao.AnttHorarioCsv;
 import com.marques.onibus_horarios_api.application.dto.importacao.ResultadoImportacaoAntt;
+import com.marques.onibus_horarios_api.application.exception.ErroDeImportacaoException;
+import com.marques.onibus_horarios_api.application.exception.ImportacaoSemRotasException;
 import com.marques.onibus_horarios_api.application.mapper.importacao.AnttHorarioMapper;
 import com.marques.onibus_horarios_api.application.mapper.importacao.AnttLinhaMapper;
 import com.marques.onibus_horarios_api.application.port.importacao.LeitorAnttCsv;
 import com.marques.onibus_horarios_api.domain.model.Linha;
 import com.marques.onibus_horarios_api.domain.repository.HorarioRepository;
 import com.marques.onibus_horarios_api.domain.repository.LinhaRepository;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -65,7 +65,9 @@ public class ImportarDadosAnttService {
             registrosAlvo++;
             String codigo = registro.codigoLinha().trim();
             if (codigo.isBlank()) {
-                throw new IllegalArgumentException("O CSV contém código de linha vazio.");
+                throw new ErroDeImportacaoException(
+                        "Código de linha vazio na linha " + registro.numeroLinhaCsv() + " do CSV."
+                );
             }
 
             Linha linha = linhasPorCodigo.get(codigo);
@@ -101,10 +103,7 @@ public class ImportarDadosAnttService {
         }
 
         if (registrosAlvo == 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNPROCESSABLE_ENTITY,
-                    "O CSV não contém registros de rotas com origem em Águas Lindas de Goiás."
-            );
+            throw new ImportacaoSemRotasException();
         }
 
         return new ResultadoImportacaoAntt(

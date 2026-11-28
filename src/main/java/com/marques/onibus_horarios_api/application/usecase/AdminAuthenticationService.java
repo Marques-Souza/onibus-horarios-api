@@ -2,8 +2,8 @@ package com.marques.onibus_horarios_api.application.usecase;
 
 import com.marques.onibus_horarios_api.application.dto.auth.LoginRequest;
 import com.marques.onibus_horarios_api.application.dto.auth.TokenResponse;
+import com.marques.onibus_horarios_api.application.exception.CredenciaisInvalidasException;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
@@ -11,7 +11,6 @@ import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -42,7 +41,7 @@ public class AdminAuthenticationService {
     public TokenResponse autenticar(LoginRequest request) {
         if (!adminUsername.equals(request.username())
                 || !passwordMatches(request.password())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciais inválidas.");
+            throw new CredenciaisInvalidasException();
         }
 
         Instant agora = Instant.now();
