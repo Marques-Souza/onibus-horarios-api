@@ -2,12 +2,16 @@ package com.marques.onibus_horarios_api.application.usecase;
 
 import com.marques.onibus_horarios_api.application.dto.HorarioResponse;
 import com.marques.onibus_horarios_api.application.dto.HorarioDestinoResponse;
+import com.marques.onibus_horarios_api.application.dto.HorarioRequest;
 import com.marques.onibus_horarios_api.application.dto.HorariosBuscaResponse;
 import com.marques.onibus_horarios_api.application.dto.HorariosLinhaResponse;
 import com.marques.onibus_horarios_api.application.dto.ProximasSaidasResponse;
 import com.marques.onibus_horarios_api.application.dto.LinhaResponse;
 import com.marques.onibus_horarios_api.application.exception.BuscaDeHorarioInvalidaException;
 import com.marques.onibus_horarios_api.domain.exception.LinhaNaoEncontradaException;
+import com.marques.onibus_horarios_api.domain.exception.HorarioDuplicadoException;
+import com.marques.onibus_horarios_api.domain.exception.HorarioNaoEncontradoException;
+import com.marques.onibus_horarios_api.domain.model.Horario;
 import com.marques.onibus_horarios_api.domain.model.Linha;
 import com.marques.onibus_horarios_api.domain.model.HorarioDaLinha;
 import com.marques.onibus_horarios_api.domain.model.Sentido;
@@ -55,6 +59,58 @@ public class HorarioService {
                 .toList();
 
         return new HorariosLinhaResponse(LinhaResponse.from(linha), horarios);
+    }
+
+    @Transactional
+    public HorarioResponse criarHorario(UUID linhaId, HorarioRequest request) {
+        Linha linha = linhaRepository.findByIdAndActiveTrue(linhaId)
+                .orElseThrow(LinhaNaoEncontradaException::new);
+        validarHorarioDuplicado(linhaId, request, null);
+        Horario horario = new Horario(
+                null,
+                linhaId,
+                request.sentido(),
+                request.tipoDia(),
+                request.horaPartida(),
+                request.observacao(),
+                true
+        );
+        return HorarioResponse.from(horarioRepository.save(horario), linha);
+    }
+
+    @Transactional
+    public HorarioResponse atualizarHorario(UUID id, HorarioRequest request) {
+        Horario existente = horarioRepository.findAtivoById(id)
+                .orElseThrow(HorarioNaoEncontradoException::new);
+        Linha linha = linhaRepository.findByIdAndActiveTrue(existente.linhaId())
+                .orElseThrow(LinhaNaoEncontradaException::new);
+        validarHorarioDuplicado(existente.linhaId(), request, id);
+
+        Horario atualizado = new Horario(
+                id,
+                existente.linhaId(),
+                request.sentido(),
+                request.tipoDia(),
+                request.horaPartida(),
+                request.observacao(),
+                true
+        );
+        return HorarioResponse.from(horarioRepository.save(atualizado), linha);
+    }
+
+    @Transactional
+    public void desativarHorario(UUID id) {
+        Horario horario = horarioRepository.findAtivoById(id)
+                .orElseThrow(HorarioNaoEncontradoException::new);
+        horarioRepository.save(new Horario(
+                horario.id(),
+                horario.linhaId(),
+                horario.sentido(),
+                horario.tipoDia(),
+                horario.horaPartida(),
+                horario.observacao(),
+                false
+        ));
     }
 
     @Transactional(readOnly = true)
@@ -169,6 +225,18 @@ public class HorarioService {
 
     private boolean estaVazio(String valor) {
         return valor == null || valor.isBlank();
+    }
+
+    private void validarHorarioDuplicado(UUID linhaId, HorarioRequest request, UUID ignoredId) {
+        if (horarioRepository.existsDuplicate(
+                linhaId,
+                request.sentido(),
+                request.tipoDia(),
+                request.horaPartida(),
+                ignoredId
+        )) {
+            throw new HorarioDuplicadoException();
+        }
     }
 
     private void validarFiltrosDaBusca(

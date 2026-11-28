@@ -5,6 +5,8 @@ import com.marques.onibus_horarios_api.application.dto.HorariosLinhaResponse;
 import com.marques.onibus_horarios_api.application.usecase.HorarioService;
 import com.marques.onibus_horarios_api.domain.model.Sentido;
 import com.marques.onibus_horarios_api.domain.model.TipoDia;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,6 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/linhas/{linhaId}/horarios")
+@Tag(name = "Horários", description = "Consulta de horários de ônibus")
 public class HorarioController {
 
     private final HorarioService horarioService;
@@ -25,6 +28,7 @@ public class HorarioController {
     }
 
     @GetMapping
+    @Operation(summary = "Listar horários da linha", description = "Retorna horários de uma linha específica")
     public ResponseEntity<HorariosLinhaResponse> listar(
             @PathVariable UUID linhaId,
             @RequestParam(required = false) Sentido sentido,

@@ -6,6 +6,8 @@ import com.marques.onibus_horarios_api.application.exception.ErroDeImportacaoExc
 import com.marques.onibus_horarios_api.application.exception.ImportacaoSemRotasException;
 import com.marques.onibus_horarios_api.domain.exception.CodigoDeLinhaDuplicadoException;
 import com.marques.onibus_horarios_api.domain.exception.HorarioDuplicadoException;
+import com.marques.onibus_horarios_api.domain.exception.HorarioNaoEncontradoException;
+import com.marques.onibus_horarios_api.domain.exception.AvisoNaoEncontradoException;
 import com.marques.onibus_horarios_api.domain.exception.LinhaNaoEncontradaException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -30,8 +32,12 @@ public class ApiExceptionHandler {
 
     private static final Logger LOGGER = Logger.getLogger(ApiExceptionHandler.class.getName());
 
-    @ExceptionHandler(LinhaNaoEncontradaException.class)
-    public ProblemDetail handleNotFound(LinhaNaoEncontradaException exception) {
+    @ExceptionHandler({
+            LinhaNaoEncontradaException.class,
+            HorarioNaoEncontradoException.class,
+            AvisoNaoEncontradoException.class
+    })
+    public ProblemDetail handleNotFound(RuntimeException exception) {
         return problem(HttpStatus.NOT_FOUND, exception.getMessage());
     }
 

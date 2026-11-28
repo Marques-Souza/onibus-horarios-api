@@ -7,8 +7,9 @@ import com.marques.onibus_horarios_api.domain.model.Sentido;
 import com.marques.onibus_horarios_api.domain.model.TipoDia;
 
 import java.time.LocalTime;
-import java.util.List;
 import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -16,11 +17,14 @@ public interface HorarioRepository {
 
     Horario save(Horario horario);
 
-    boolean existsByLinhaIdAndSentidoAndTipoDiaAndHoraPartida(
+    Optional<Horario> findAtivoById(UUID id);
+
+    boolean existsDuplicate(
             UUID linhaId,
             Sentido sentido,
             TipoDia tipoDia,
-            LocalTime horaPartida
+            LocalTime horaPartida,
+            UUID ignoredId
     );
 
     Set<ChaveHorario> buscarChavesExistentesPorLinhaIds(Collection<UUID> linhaIds);

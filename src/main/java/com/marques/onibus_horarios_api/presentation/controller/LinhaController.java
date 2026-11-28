@@ -7,6 +7,8 @@ import com.marques.onibus_horarios_api.domain.model.Pagina;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +17,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/linhas")
+@Tag(name = "Linhas", description = "Gerenciamento de linhas de ônibus")
 public class LinhaController {
 
     private final LinhaService linhaService;
@@ -24,6 +27,7 @@ public class LinhaController {
     }
 
     @PostMapping
+    @Operation(summary = "Criar linha", description = "Cria uma nova linha de ônibus (requer ROLE_ADMIN)")
     public ResponseEntity<LinhaResponse> criar(@Valid @RequestBody LinhaRequest request) {
         LinhaResponse response = linhaService.criar(request);
         URI location = URI.create("/api/v1/linhas/" + response.id());
@@ -32,6 +36,7 @@ public class LinhaController {
     }
 
     @GetMapping
+    @Operation(summary = "Listar linhas", description = "Lista linhas ativas com filtros opcionais")
     public ResponseEntity<Pagina<LinhaResponse>> listar(
             @RequestParam(required = false) String bairroOrigem,
             @RequestParam(required = false) String terminalDestino,
@@ -44,11 +49,13 @@ public class LinhaController {
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Buscar linha por ID", description = "Retorna uma linha específica pelo ID")
     public ResponseEntity<LinhaResponse> buscarPorId(@PathVariable UUID id) {
         return ResponseEntity.ok(linhaService.buscarPorId(id));
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Atualizar linha", description = "Atualiza dados de uma linha (requer ROLE_ADMIN)")
     public ResponseEntity<LinhaResponse> atualizar(
             @PathVariable UUID id,
             @Valid @RequestBody LinhaRequest request
@@ -57,6 +64,7 @@ public class LinhaController {
     }
 
     @DeleteMapping("/{id}")
+    @Operation(summary = "Desativar linha", description = "Desativa uma linha (soft delete, requer ROLE_ADMIN)")
     public ResponseEntity<Void> desativar(@PathVariable UUID id) {
         linhaService.desativar(id);
         return ResponseEntity.noContent().build();

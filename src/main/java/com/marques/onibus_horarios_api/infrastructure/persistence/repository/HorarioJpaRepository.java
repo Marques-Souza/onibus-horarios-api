@@ -12,16 +12,29 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface HorarioJpaRepository extends JpaRepository<HorarioEntity, UUID>,
         JpaSpecificationExecutor<HorarioEntity> {
 
-    boolean existsByLinha_IdAndSentidoAndTipoDiaAndHoraPartida(
-            UUID linhaId,
-            Sentido sentido,
-            TipoDia tipoDia,
-            LocalTime horaPartida
+    Optional<HorarioEntity> findByIdAndActiveTrue(UUID id);
+
+    @Query("""
+        SELECT CASE WHEN COUNT(h) > 0 THEN true ELSE false END
+        FROM HorarioEntity h
+        WHERE h.linha.id = :linhaId
+          AND h.sentido = :sentido
+          AND h.tipoDia = :tipoDia
+          AND h.horaPartida = :horaPartida
+          AND (:ignoredId IS NULL OR h.id <> :ignoredId)
+        """)
+    boolean existsDuplicate(
+            @Param("linhaId") UUID linhaId,
+            @Param("sentido") Sentido sentido,
+            @Param("tipoDia") TipoDia tipoDia,
+            @Param("horaPartida") LocalTime horaPartida,
+            @Param("ignoredId") UUID ignoredId
     );
 
     @Query("""

@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -53,18 +54,20 @@ public class HorarioRepositoryAdapter implements HorarioRepository {
     }
 
     @Override
-    public boolean existsByLinhaIdAndSentidoAndTipoDiaAndHoraPartida(
+    public Optional<Horario> findAtivoById(UUID id) {
+        return horarioJpaRepository.findByIdAndActiveTrue(id)
+                .map(horarioPersistenceMapper::toDomain);
+    }
+
+    @Override
+    public boolean existsDuplicate(
             UUID linhaId,
             Sentido sentido,
             TipoDia tipoDia,
-            LocalTime horaPartida
+            LocalTime horaPartida,
+            UUID ignoredId
     ) {
-        return horarioJpaRepository.existsByLinha_IdAndSentidoAndTipoDiaAndHoraPartida(
-                linhaId,
-                sentido,
-                tipoDia,
-                horaPartida
-        );
+        return horarioJpaRepository.existsDuplicate(linhaId, sentido, tipoDia, horaPartida, ignoredId);
     }
 
     @Override

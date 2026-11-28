@@ -3,6 +3,7 @@ package com.marques.onibus_horarios_api;
 import com.marques.onibus_horarios_api.infrastructure.persistence.repository.LinhaJpaRepository;
 import com.marques.onibus_horarios_api.infrastructure.persistence.repository.HorarioJpaRepository;
 import com.marques.onibus_horarios_api.infrastructure.persistence.repository.ImportacaoJpaRepository;
+import com.marques.onibus_horarios_api.infrastructure.persistence.repository.AvisoJpaRepository;
 import com.marques.onibus_horarios_api.infrastructure.persistence.entity.HorarioEntity;
 import com.marques.onibus_horarios_api.infrastructure.persistence.entity.LinhaEntity;
 import com.marques.onibus_horarios_api.domain.model.Sentido;
@@ -25,6 +26,7 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -51,8 +53,12 @@ class LinhaControllerIntegrationTest {
     @Autowired
     private ImportacaoJpaRepository importacaoRepository;
 
+    @Autowired
+    private AvisoJpaRepository avisoRepository;
+
     @BeforeEach
     void limparBanco() {
+        avisoRepository.deleteAll();
         importacaoRepository.deleteAll();
         horarioRepository.deleteAll();
         linhaRepository.deleteAll();
@@ -404,6 +410,195 @@ class LinhaControllerIntegrationTest {
     }
 
     @Test
+    void deveCriarAtualizarEDesativarHorarioComoAdmin() throws Exception {
+        LinhaEntity linha = criarLinha("CRUD-HORARIO", "BRASILIA", true);
+        String request = requisicaoHorario("IDA", "DIA_UTIL", "08:00", "Ponto principal");
+
+        String location = mockMvc.perform(post("/api/v1/linhas/{linhaId}/horarios", linha.getId())
+                        .with(adminJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.sentido").value("IDA"))
+                .andExpect(jsonPath("$.horaPartida").value("08:00:00"))
+                .andReturn()
+                .getResponse()
+                .getHeader("Location");
+        UUID horarioId = idDaLocation(location);
+
+        mockMvc.perform(post("/api/v1/linhas/{linhaId}/horarios", linha.getId())
+                        .with(adminJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(put("/api/v1/horarios/{id}", horarioId)
+                        .with(adminJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoHorario("VOLTA", "DIA_UTIL", "09:15", "Ponto atualizado")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sentido").value("VOLTA"))
+                .andExpect(jsonPath("$.horaPartida").value("09:15:00"))
+                .andExpect(jsonPath("$.observacao").value("Ponto atualizado"));
+
+        mockMvc.perform(delete("/api/v1/horarios/{id}", horarioId).with(adminJwt()))
+                .andExpect(status().isNoContent());
+
+        org.assertj.core.api.Assertions.assertThat(horarioRepository.findById(horarioId))
+                .isPresent()
+                .get()
+                .extracting(HorarioEntity::isActive)
+                .isEqualTo(false);
+    }
+
+    @Test
+    void deveValidarAcessoEExistenciaNoCrudDeHorarios() throws Exception {
+        LinhaEntity linha = criarLinha("HORARIO-PROTEGIDO", "BRASILIA", true);
+        String request = requisicaoHorario("IDA", "DIA_UTIL", "08:00", null);
+
+        mockMvc.perform(post("/api/v1/linhas/{linhaId}/horarios", linha.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/api/v1/linhas/{linhaId}/horarios", UUID.randomUUID())
+                        .with(adminJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(put("/api/v1/horarios/{id}", UUID.randomUUID())
+                        .with(adminJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(post("/api/v1/linhas/{linhaId}/horarios", linha.getId())
+                        .with(adminJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sentido\":\"IDA\",\"tipoDia\":\"DIA_UTIL\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.horaPartida").exists());
+    }
+
+    @Test
+    void deveReceberAvisoPublicoEPermitirAdministracaoPaginada() throws Exception {
+        LinhaEntity linha = criarLinha("LINHA-AVISO", "BRASILIA", true);
+        String body = """
+                {
+                  "linhaId": "%s",
+                  "tipo": "ATRASO",
+                  "mensagem": "Ônibus atrasado na parada principal",
+                  "horarioReferencia": "2026-11-28T08:30:00"
+                }
+                """.formatted(linha.getId());
+
+        String location = mockMvc.perform(post("/api/v1/avisos")
+                        .with(clientIp("192.0.2.10"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.recebido").value(true))
+                .andReturn()
+                .getResponse()
+                .getHeader("Location");
+        UUID avisoId = idDaLocation(location);
+
+        mockMvc.perform(get("/api/v1/avisos"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/avisos")
+                        .with(adminJwt())
+                        .queryParam("status", "NOVO")
+                        .queryParam("pagina", "0")
+                        .queryParam("tamanho", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.conteudo.length()").value(1))
+                .andExpect(jsonPath("$.conteudo[0].id").value(avisoId.toString()))
+                .andExpect(jsonPath("$.conteudo[0].status").value("NOVO"))
+                .andExpect(jsonPath("$.totalElementos").value(1));
+
+        mockMvc.perform(patch("/api/v1/avisos/{id}/status", avisoId)
+                        .with(adminJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"VERIFICADO\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("VERIFICADO"));
+
+        mockMvc.perform(patch("/api/v1/avisos/{id}/status", avisoId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"DESCARTADO\"}"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(patch("/api/v1/avisos/{id}/status", UUID.randomUUID())
+                        .with(adminJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"DESCARTADO\"}"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/api/v1/avisos")
+                        .with(adminJwt())
+                        .queryParam("status", "NOVO"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElementos").value(0));
+    }
+
+    @Test
+    void deveValidarAvisoELinhaOpcionalEDescartarHoneypot() throws Exception {
+        mockMvc.perform(post("/api/v1/avisos")
+                        .with(clientIp("192.0.2.11"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"tipo\":\"ATRASO\",\"mensagem\":\"curto\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.mensagem").exists());
+
+        mockMvc.perform(post("/api/v1/avisos")
+                        .with(clientIp("192.0.2.12"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "linhaId":"%s",
+                                  "tipo":"OUTRO",
+                                  "mensagem":"Relato válido de teste"
+                                }
+                                """.formatted(UUID.randomUUID())))
+                .andExpect(status().isNotFound());
+
+        long avisosAntes = avisoRepository.count();
+        mockMvc.perform(post("/api/v1/avisos")
+                        .with(clientIp("192.0.2.13"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"website":"preenchido por bot"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.recebido").value(true));
+        org.assertj.core.api.Assertions.assertThat(avisoRepository.count()).isEqualTo(avisosAntes);
+    }
+
+    @Test
+    void deveLimitarAvisosPorIpA5Em10Minutos() throws Exception {
+        String body = """
+                {"tipo":"OUTRO","mensagem":"Relato de teste para limite"}
+                """;
+        String ip = "192.0.2.14";
+        for (int envio = 1; envio <= 5; envio++) {
+            mockMvc.perform(post("/api/v1/avisos")
+                            .with(clientIp(ip))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isCreated());
+        }
+
+        mockMvc.perform(post("/api/v1/avisos")
+                        .with(clientIp(ip))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.status").value(429));
+    }
+
+    @Test
     void deveFiltrarLinhasEAplicarPaginacao() throws Exception {
         criarLinha("2501", "TAGUATINGA", true);
         criarLinha("2502", "TAGUATINGA", true);
@@ -621,6 +816,34 @@ class LinhaControllerIntegrationTest {
                 "text/csv",
                 conteudo.getBytes(java.nio.charset.StandardCharsets.UTF_8)
         );
+    }
+
+    private String requisicaoHorario(String sentido, String tipoDia, String hora, String observacao) {
+        return """
+                {
+                  "sentido": "%s",
+                  "tipoDia": "%s",
+                  "horaPartida": "%s",
+                  "observacao": %s
+                }
+                """.formatted(
+                sentido,
+                tipoDia,
+                hora,
+                observacao == null ? "null" : "\"" + observacao + "\""
+        );
+    }
+
+    private org.springframework.test.web.servlet.request.RequestPostProcessor clientIp(String ip) {
+        return request -> {
+            request.setRemoteAddr(ip);
+            return request;
+        };
+    }
+
+    private UUID idDaLocation(String location) {
+        String path = java.net.URI.create(location).getPath();
+        return UUID.fromString(path.substring(path.lastIndexOf('/') + 1));
     }
 
     private LinhaEntity criarLinha(String codigo, String terminalDestino, boolean active) {

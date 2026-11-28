@@ -1,5 +1,7 @@
 # Ônibus Horários API
 
+[![CI](https://github.com/marques/onibus-horarios-api/actions/workflows/ci.yml/badge.svg)](https://github.com/marques/onibus-horarios-api/actions/workflows/ci.yml)
+
 API REST para consultar linhas e horários de ônibus de Águas Lindas de Goiás para o Distrito Federal, com importação dos dados públicos da ANTT.
 
 ## Stack
@@ -54,6 +56,8 @@ Get-Content .env | ForEach-Object {
 
 A API inicia em `http://localhost:8087`. As migrations do Flyway são aplicadas automaticamente.
 
+A documentação da API (Swagger/OpenAPI) está disponível em `http://localhost:8087/swagger-ui/index.html`.
+
 ## Variáveis de ambiente
 
 | Variável | Descrição |
@@ -63,7 +67,7 @@ A API inicia em `http://localhost:8087`. As migrations do Flyway são aplicadas 
 | `ADMIN_USERNAME` | Usuário administrativo da API |
 | `ADMIN_PASSWORD` | Senha administrativa |
 | `ADMIN_JWT_SECRET` | Chave Base64 com pelo menos 32 bytes |
-| `CORS_ALLOWED_ORIGINS` | Origens permitidas para o front-end; configuração planejada |
+| `CORS_ALLOWED_ORIGINS` | Origens permitidas para o front-end (separadas por vírgula; padrão: `http://localhost:5173`) |
 
 Os testes usam PostgreSQL via Testcontainers e valores fictícios em `src/test/resources/application.yaml`; não dependem das variáveis de ambiente de desenvolvimento.
 
@@ -78,12 +82,20 @@ Os testes usam PostgreSQL via Testcontainers e valores fictícios em `src/test/r
 | `PUT` | `/api/v1/linhas/{id}` | ADMIN | Atualiza uma linha |
 | `DELETE` | `/api/v1/linhas/{id}` | ADMIN | Desativa uma linha (soft delete) |
 | `GET` | `/api/v1/linhas/{linhaId}/horarios` | Público | Lista horários ativos da linha; filtros `sentido` e `tipoDia` |
+| `POST` | `/api/v1/linhas/{linhaId}/horarios` | ADMIN | Cadastra um horário na linha |
+| `PUT` | `/api/v1/horarios/{id}` | ADMIN | Atualiza um horário |
+| `DELETE` | `/api/v1/horarios/{id}` | ADMIN | Desativa um horário (soft delete) |
 | `GET` | `/api/v1/horarios` | Público | Busca horários por origem, `destino`, código, bairro, sentido e tipo de dia |
 | `GET` | `/api/v1/horarios/proximas-saidas` | Público | Busca as próximas saídas para um trajeto; `sentido` é obrigatório |
 | `GET` | `/api/v1/locais` | Público | Lista bairros e terminais distintos de linhas ativas; filtro opcional `q` |
 | `GET` | `/api/v1/sobre/dados` | Público | Informa fonte dos dados e data da última importação |
+| `POST` | `/api/v1/avisos` | Público | Registra relato de passageiro; limite de 5 por IP a cada 10 minutos |
+| `GET` | `/api/v1/avisos` | ADMIN | Lista relatos com paginação e filtro opcional por status |
+| `PATCH` | `/api/v1/avisos/{id}/status` | ADMIN | Atualiza status do relato |
 | `POST` | `/api/v1/admin/importacoes/antt` | ADMIN | Importa arquivo CSV da ANTT; campo multipart `arquivo` |
 | `GET` | `/actuator/health` | Público | Verifica a saúde da aplicação |
+| `GET` | `/swagger-ui/**` | Público | Interface Swagger UI para documentação |
+| `GET` | `/v3/api-docs/**` | Público | Especificação OpenAPI em JSON |
 
 Para rotas protegidas, envie o token no cabeçalho `Authorization: Bearer <token>`. Valores aceitos para `sentido`: `IDA` e `VOLTA`; para `tipoDia`: `DIA_UTIL`, `SABADO` e `DOMINGO_FERIADO`.
 
@@ -116,6 +128,8 @@ curl -X POST http://localhost:8087/api/v1/admin/importacoes/antt \
 ```
 
 A importação considera as rotas de Águas Lindas de Goiás e é idempotente para horários já cadastrados. Cada importação concluída registra o nome do arquivo, horário e contagens; o endpoint `/api/v1/sobre/dados` informa quando os dados foram atualizados pela última vez. O endpoint `/api/v1/locais?q=ceilandia` retorna listas distintas de bairros e terminais ativos para autocompletar, com filtro que ignora acentos e maiúsculas.
+
+Os relatos de passageiros aceitam `linhaId` e `horarioReferencia` opcionais, tipo `ATRASO`, `ALTERACAO_HORARIO` ou `OUTRO`, e mensagem entre 10 e 500 caracteres. O campo honeypot opcional `website` deve permanecer vazio. A listagem de avisos é restrita ao ADMIN para evitar expor mensagens enviadas por passageiros.
 
 ## Testes
 

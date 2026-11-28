@@ -21,6 +21,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -31,7 +32,7 @@ import java.util.Base64;
 public class JwtSecurityConfiguration {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource) throws Exception {
         JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
         authoritiesConverter.setAuthoritiesClaimName("roles");
         authoritiesConverter.setAuthorityPrefix("ROLE_");
@@ -41,6 +42,7 @@ public class JwtSecurityConfiguration {
 
         return http
                 .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
@@ -65,10 +67,16 @@ public class JwtSecurityConfiguration {
                         .requestMatchers(HttpMethod.GET, "/api/v1/linhas", "/api/v1/linhas/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/horarios", "/api/v1/horarios/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/locais", "/api/v1/sobre/dados").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/avisos").permitAll()
+                        .requestMatchers("/api/v1/avisos", "/api/v1/avisos/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/linhas", "/api/v1/linhas/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/linhas/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/linhas/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/linhas/*/horarios").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/horarios/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/horarios/**").hasRole("ADMIN")
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .anyRequest().denyAll()
                 )
