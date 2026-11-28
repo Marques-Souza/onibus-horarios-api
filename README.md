@@ -33,7 +33,7 @@ $bytes = New-Object byte[] 32
 
 No Bash, use `openssl rand -base64 32`. Copie o resultado para `ADMIN_JWT_SECRET` no `.env`. O `.env` é ignorado pelo Git; não compartilhe credenciais reais.
 
-Suba o PostgreSQL:
+Suba o PostgreSQL com o Compose da raiz do projeto:
 
 ```powershell
 docker compose up -d
