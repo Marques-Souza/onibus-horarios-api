@@ -2,6 +2,7 @@ package com.marques.onibus_horarios_api.infrastructure.persistence.repository;
 
 import com.marques.onibus_horarios_api.domain.model.Horario;
 import com.marques.onibus_horarios_api.domain.model.HorarioDaLinha;
+import com.marques.onibus_horarios_api.domain.model.ChaveHorario;
 import com.marques.onibus_horarios_api.domain.model.Linha;
 import com.marques.onibus_horarios_api.domain.model.Sentido;
 import com.marques.onibus_horarios_api.domain.model.TipoDia;
@@ -22,8 +23,11 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalTime;
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -61,6 +65,14 @@ public class HorarioRepositoryAdapter implements HorarioRepository {
                 tipoDia,
                 horaPartida
         );
+    }
+
+    @Override
+    public Set<ChaveHorario> buscarChavesExistentesPorLinhaIds(Collection<UUID> linhaIds) {
+        if (linhaIds.isEmpty()) {
+            return Set.of();
+        }
+        return new HashSet<>(horarioJpaRepository.buscarChavesExistentesPorLinhaIds(linhaIds));
     }
 
     @Override

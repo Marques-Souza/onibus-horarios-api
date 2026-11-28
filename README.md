@@ -80,6 +80,8 @@ Os testes usam PostgreSQL via Testcontainers e valores fictícios em `src/test/r
 | `GET` | `/api/v1/linhas/{linhaId}/horarios` | Público | Lista horários ativos da linha; filtros `sentido` e `tipoDia` |
 | `GET` | `/api/v1/horarios` | Público | Busca horários por origem, `destino`, código, bairro, sentido e tipo de dia |
 | `GET` | `/api/v1/horarios/proximas-saidas` | Público | Busca as próximas saídas para um trajeto; `sentido` é obrigatório |
+| `GET` | `/api/v1/locais` | Público | Lista bairros e terminais distintos de linhas ativas; filtro opcional `q` |
+| `GET` | `/api/v1/sobre/dados` | Público | Informa fonte dos dados e data da última importação |
 | `POST` | `/api/v1/admin/importacoes/antt` | ADMIN | Importa arquivo CSV da ANTT; campo multipart `arquivo` |
 | `GET` | `/actuator/health` | Público | Verifica a saúde da aplicação |
 
@@ -113,7 +115,7 @@ curl -X POST http://localhost:8087/api/v1/admin/importacoes/antt \
   -F "arquivo=@horarios.csv"
 ```
 
-A importação considera as rotas de Águas Lindas de Goiás e é idempotente para horários já cadastrados.
+A importação considera as rotas de Águas Lindas de Goiás e é idempotente para horários já cadastrados. Cada importação concluída registra o nome do arquivo, horário e contagens; o endpoint `/api/v1/sobre/dados` informa quando os dados foram atualizados pela última vez. O endpoint `/api/v1/locais?q=ceilandia` retorna listas distintas de bairros e terminais ativos para autocompletar, com filtro que ignora acentos e maiúsculas.
 
 ## Testes
 

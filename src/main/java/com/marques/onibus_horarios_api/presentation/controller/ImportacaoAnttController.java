@@ -27,9 +27,13 @@ public class ImportacaoAnttController {
         if (arquivo.isEmpty()) {
             throw new ErroDeImportacaoException("O arquivo CSV não pode estar vazio.");
         }
+        String nomeArquivo = arquivo.getOriginalFilename();
+        if (nomeArquivo == null || nomeArquivo.isBlank()) {
+            throw new ErroDeImportacaoException("O arquivo enviado precisa ter um nome.");
+        }
 
         try (var inputStream = arquivo.getInputStream()) {
-            return ResponseEntity.ok(importarDadosAnttService.importar(inputStream));
+            return ResponseEntity.ok(importarDadosAnttService.importar(nomeArquivo, inputStream));
         } catch (IOException exception) {
             throw new ErroDeImportacaoException(
                     "Não foi possível ler o arquivo CSV enviado.",

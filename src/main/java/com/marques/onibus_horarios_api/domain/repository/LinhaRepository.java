@@ -3,6 +3,7 @@ package com.marques.onibus_horarios_api.domain.repository;
 import com.marques.onibus_horarios_api.domain.model.Linha;
 import com.marques.onibus_horarios_api.domain.model.Pagina;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,4 +25,8 @@ public interface LinhaRepository {
             int pagina,
             int tamanho
     );
+
+    List<String> buscarBairrosAtivos(String termo);
+
+    List<String> buscarTerminaisAtivos(String termo);
 }

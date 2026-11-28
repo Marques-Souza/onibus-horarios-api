@@ -7,8 +7,12 @@ import com.marques.onibus_horarios_api.application.exception.ImportacaoSemRotasE
 import com.marques.onibus_horarios_api.application.mapper.importacao.AnttHorarioMapper;
 import com.marques.onibus_horarios_api.application.mapper.importacao.AnttLinhaMapper;
 import com.marques.onibus_horarios_api.application.port.importacao.LeitorAnttCsv;
+import com.marques.onibus_horarios_api.domain.model.ChaveHorario;
+import com.marques.onibus_horarios_api.domain.model.Horario;
+import com.marques.onibus_horarios_api.domain.model.Importacao;
 import com.marques.onibus_horarios_api.domain.model.Linha;
 import com.marques.onibus_horarios_api.domain.repository.HorarioRepository;
+import com.marques.onibus_horarios_api.domain.repository.ImportacaoRepository;
 import com.marques.onibus_horarios_api.domain.repository.LinhaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,8 +20,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.Normalizer;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class ImportarDadosAnttService {
@@ -27,6 +36,7 @@ public class ImportarDadosAnttService {
     private final LeitorAnttCsv leitorAnttCsv;
     private final LinhaRepository linhaRepository;
     private final HorarioRepository horarioRepository;
+    private final ImportacaoRepository importacaoRepository;
     private final AnttLinhaMapper linhaMapper;
     private final AnttHorarioMapper horarioMapper;
 
@@ -34,26 +44,27 @@ public class ImportarDadosAnttService {
             LeitorAnttCsv leitorAnttCsv,
             LinhaRepository linhaRepository,
             HorarioRepository horarioRepository,
+            ImportacaoRepository importacaoRepository,
             AnttLinhaMapper linhaMapper,
             AnttHorarioMapper horarioMapper
     ) {
         this.leitorAnttCsv = leitorAnttCsv;
         this.linhaRepository = linhaRepository;
         this.horarioRepository = horarioRepository;
+        this.importacaoRepository = importacaoRepository;
         this.linhaMapper = linhaMapper;
         this.horarioMapper = horarioMapper;
     }
 
     @Transactional(rollbackFor = IOException.class)
-    public ResultadoImportacaoAntt importar(InputStream arquivo) throws IOException {
+    public ResultadoImportacaoAntt importar(String nomeArquivo, InputStream arquivo) throws IOException {
         var registros = leitorAnttCsv.ler(arquivo);
         var linhasPorCodigo = new HashMap<String, Linha>();
+        var horariosImportados = new ArrayList<Horario>();
 
         int registrosIgnorados = 0;
         int linhasCriadas = 0;
         int linhasAtualizadas = 0;
-        int horariosCriados = 0;
-        int horariosJaExistentes = 0;
         int registrosAlvo = 0;
 
         for (AnttHorarioCsv registro : registros) {
@@ -84,29 +95,36 @@ public class ImportarDadosAnttService {
                 }
             }
 
-            var horarios = horarioMapper.toDomain(registro, linha.id());
-            for (var horario : horarios) {
-                boolean existe = horarioRepository.existsByLinhaIdAndSentidoAndTipoDiaAndHoraPartida(
-                        horario.linhaId(),
-                        horario.sentido(),
-                        horario.tipoDia(),
-                        horario.horaPartida()
-                );
-
-                if (existe) {
-                    horariosJaExistentes++;
-                } else {
-                    horarioRepository.save(horario);
-                    horariosCriados++;
-                }
-            }
+            horariosImportados.addAll(horarioMapper.toDomain(registro, linha.id()));
         }
 
         if (registrosAlvo == 0) {
             throw new ImportacaoSemRotasException();
         }
 
-        return new ResultadoImportacaoAntt(
+        Set<UUID> linhaIds = linhasPorCodigo.values().stream()
+                .map(Linha::id)
+                .collect(Collectors.toSet());
+        Set<ChaveHorario> chavesExistentes = horarioRepository.buscarChavesExistentesPorLinhaIds(linhaIds);
+
+        int horariosCriados = 0;
+        int horariosJaExistentes = 0;
+        for (Horario horario : horariosImportados) {
+            ChaveHorario chave = new ChaveHorario(
+                    horario.linhaId(),
+                    horario.sentido(),
+                    horario.tipoDia(),
+                    horario.horaPartida()
+            );
+            if (!chavesExistentes.add(chave)) {
+                horariosJaExistentes++;
+                continue;
+            }
+            horarioRepository.save(horario);
+            horariosCriados++;
+        }
+
+        var resultado = new ResultadoImportacaoAntt(
                 registros.size(),
                 registrosIgnorados,
                 linhasCriadas,
@@ -114,6 +132,15 @@ public class ImportarDadosAnttService {
                 horariosCriados,
                 horariosJaExistentes
         );
+        importacaoRepository.save(new Importacao(
+                null,
+                nomeArquivo,
+                Instant.now(),
+                linhasCriadas,
+                horariosCriados,
+                horariosJaExistentes
+        ));
+        return resultado;
     }
 
     private boolean ehLocalidadeAlvo(String localidade) {

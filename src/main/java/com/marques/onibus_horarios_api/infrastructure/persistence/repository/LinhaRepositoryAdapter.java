@@ -82,6 +82,16 @@ public class LinhaRepositoryAdapter implements LinhaRepository {
         );
     }
 
+    @Override
+    public List<String> buscarBairrosAtivos(String termo) {
+        return linhaJpaRepository.buscarBairrosAtivos(normalizarFiltro(termo));
+    }
+
+    @Override
+    public List<String> buscarTerminaisAtivos(String termo) {
+        return linhaJpaRepository.buscarTerminaisAtivos(normalizarFiltro(termo));
+    }
+
     private String normalizarFiltro(String filtro) {
         return filtro == null ? "" : filtro.trim();
     }

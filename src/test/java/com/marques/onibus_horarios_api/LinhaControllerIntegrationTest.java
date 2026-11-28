@@ -2,6 +2,7 @@ package com.marques.onibus_horarios_api;
 
 import com.marques.onibus_horarios_api.infrastructure.persistence.repository.LinhaJpaRepository;
 import com.marques.onibus_horarios_api.infrastructure.persistence.repository.HorarioJpaRepository;
+import com.marques.onibus_horarios_api.infrastructure.persistence.repository.ImportacaoJpaRepository;
 import com.marques.onibus_horarios_api.infrastructure.persistence.entity.HorarioEntity;
 import com.marques.onibus_horarios_api.infrastructure.persistence.entity.LinhaEntity;
 import com.marques.onibus_horarios_api.domain.model.Sentido;
@@ -47,8 +48,12 @@ class LinhaControllerIntegrationTest {
     @Autowired
     private HorarioJpaRepository horarioRepository;
 
+    @Autowired
+    private ImportacaoJpaRepository importacaoRepository;
+
     @BeforeEach
     void limparBanco() {
+        importacaoRepository.deleteAll();
         horarioRepository.deleteAll();
         linhaRepository.deleteAll();
     }
@@ -297,6 +302,108 @@ class LinhaControllerIntegrationTest {
     }
 
     @Test
+    void deveListarLocaisDistintosDasLinhasAtivasEFiltrarSemAcentos() throws Exception {
+        LinhaEntity primeira = criarLinha("LOCAL-1", "Brasília Centro", true);
+        primeira.setBairroOrigem("Ceilândia Norte");
+        linhaRepository.save(primeira);
+
+        LinhaEntity repetida = criarLinha("LOCAL-2", "Brasília Centro", true);
+        repetida.setBairroOrigem("Ceilândia Norte");
+        linhaRepository.save(repetida);
+
+        LinhaEntity inativa = criarLinha("LOCAL-3", "Brasília Sul", false);
+        inativa.setBairroOrigem("Ceilândia Sul");
+        linhaRepository.save(inativa);
+
+        mockMvc.perform(get("/api/v1/locais"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bairrosOrigem.length()").value(1))
+                .andExpect(jsonPath("$.bairrosOrigem[0]").value("Ceilândia Norte"))
+                .andExpect(jsonPath("$.terminaisDestino.length()").value(1))
+                .andExpect(jsonPath("$.terminaisDestino[0]").value("Brasília Centro"));
+
+        mockMvc.perform(get("/api/v1/locais").queryParam("q", "brasilia"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bairrosOrigem.length()").value(0))
+                .andExpect(jsonPath("$.terminaisDestino.length()").value(1))
+                .andExpect(jsonPath("$.terminaisDestino[0]").value("Brasília Centro"));
+
+        mockMvc.perform(get("/api/v1/locais").queryParam("q", "ceilandia"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bairrosOrigem.length()").value(1))
+                .andExpect(jsonPath("$.bairrosOrigem[0]").value("Ceilândia Norte"))
+                .andExpect(jsonPath("$.terminaisDestino.length()").value(0));
+    }
+
+    @Test
+    void deveRetornarFonteEDataNulaQuandoAindaNaoHouveImportacao() throws Exception {
+        mockMvc.perform(get("/api/v1/sobre/dados"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fonte").value("ANTT"))
+                .andExpect(jsonPath("$.ultimaImportacao").isEmpty());
+    }
+
+    @Test
+    void deveRegistrarImportacaoEManterIdempotenciaDosHorarios() throws Exception {
+        String csv = """
+                Informativo 1
+                Informativo 2
+                Informativo 3
+                Informativo 4
+                Empresa;Prefixo;Localidade;Codigo;Nome;Sentido;Horario;Dias uteis;Sabado;Domingo;Extra
+                Operadora;123;AGUAS LINDAS DE GOIAS/GO-BRASILIA/DF;IMPORT-1;AGUAS LINDAS DE GOIAS - BRASILIA;SENTIDO GO-DF;7:30;1;1;1;-
+                Operadora;123;AGUAS LINDAS DE GOIAS/GO-BRASILIA/DF;IMPORT-1;AGUAS LINDAS DE GOIAS - BRASILIA;SENTIDO GO-DF;7:30;1;1;1;-
+                """;
+
+        mockMvc.perform(multipart("/api/v1/admin/importacoes/antt")
+                        .file(arquivoCsv("rotas-primeiro.csv", csv))
+                        .with(adminJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linhasCriadas").value(1))
+                .andExpect(jsonPath("$.horariosCriados").value(3))
+                .andExpect(jsonPath("$.horariosJaExistentes").value(3));
+
+        mockMvc.perform(multipart("/api/v1/admin/importacoes/antt")
+                        .file(arquivoCsv("rotas-segundo.csv", csv))
+                        .with(adminJwt()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.linhasCriadas").value(0))
+                .andExpect(jsonPath("$.horariosCriados").value(0))
+                .andExpect(jsonPath("$.horariosJaExistentes").value(6));
+
+        var ultimaImportacao = importacaoRepository.findFirstByOrderByImportadoEmDesc().orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(ultimaImportacao.getNomeArquivo())
+                .isEqualTo("rotas-segundo.csv");
+        org.assertj.core.api.Assertions.assertThat(ultimaImportacao.getLinhasCriadas()).isZero();
+        org.assertj.core.api.Assertions.assertThat(ultimaImportacao.getHorariosCriados()).isZero();
+        org.assertj.core.api.Assertions.assertThat(ultimaImportacao.getHorariosIgnorados()).isEqualTo(6);
+
+        mockMvc.perform(get("/api/v1/sobre/dados"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fonte").value("ANTT"))
+                .andExpect(jsonPath("$.ultimaImportacao").isNotEmpty());
+    }
+
+    @Test
+    void naoDeveRegistrarImportacaoSemRotasDaCidadeAtendida() throws Exception {
+        String csv = """
+                Informativo 1
+                Informativo 2
+                Informativo 3
+                Informativo 4
+                Empresa;Prefixo;Localidade;Codigo;Nome;Sentido;Horario;Dias uteis;Sabado;Domingo;Extra
+                Operadora;123;GOIANIA/GO-BRASILIA/DF;2001;Linha teste;SENTIDO GO-DF;7:30;1;0;0;-
+                """;
+
+        mockMvc.perform(multipart("/api/v1/admin/importacoes/antt")
+                        .file(arquivoCsv("sem-rotas.csv", csv))
+                        .with(adminJwt()))
+                .andExpect(status().isUnprocessableEntity());
+
+        org.assertj.core.api.Assertions.assertThat(importacaoRepository.count()).isZero();
+    }
+
+    @Test
     void deveFiltrarLinhasEAplicarPaginacao() throws Exception {
         criarLinha("2501", "TAGUATINGA", true);
         criarLinha("2502", "TAGUATINGA", true);
@@ -505,6 +612,15 @@ class LinhaControllerIntegrationTest {
 
     private org.springframework.test.web.servlet.request.RequestPostProcessor adminJwt() {
         return jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+    }
+
+    private MockMultipartFile arquivoCsv(String nome, String conteudo) {
+        return new MockMultipartFile(
+                "arquivo",
+                nome,
+                "text/csv",
+                conteudo.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        );
     }
 
     private LinhaEntity criarLinha(String codigo, String terminalDestino, boolean active) {
