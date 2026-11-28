@@ -27,8 +27,8 @@ public interface LinhaJpaRepository extends JpaRepository<LinhaEntity, UUID> {
     @Query("""
         SELECT l FROM LinhaEntity l
         WHERE l.active = true
-          AND (:bairroOrigem IS NULL OR LOWER(l.bairroOrigem) LIKE LOWER(CONCAT('%', :bairroOrigem, '%')))
-          AND (:terminalDestino IS NULL OR LOWER(l.terminalDestino) LIKE LOWER(CONCAT('%', :terminalDestino, '%')))
+          AND (:bairroOrigem = '' OR LOWER(l.bairroOrigem) LIKE LOWER(CONCAT('%', :bairroOrigem, '%')))
+          AND (:terminalDestino = '' OR LOWER(l.terminalDestino) LIKE LOWER(CONCAT('%', :terminalDestino, '%')))
         ORDER BY l.codigo
         """)
     Page<LinhaEntity> buscarAtivas(

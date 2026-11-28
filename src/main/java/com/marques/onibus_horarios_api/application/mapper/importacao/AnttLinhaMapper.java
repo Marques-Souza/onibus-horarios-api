@@ -35,7 +35,10 @@ public class AnttLinhaMapper {
     private String extrairBairro(String nomeLinha) {
         Matcher matcher = BAIRROS_EXPLICITOS.matcher(nomeLinha);
         if (matcher.find()) {
-            return matcher.group(1).trim();
+            String bairro = matcher.group(1).trim();
+            if (!ehSiglaEstado(bairro)) {
+                return bairro;
+            }
         }
 
         String nomeNormalizado = removerAcentos(nomeLinha).toUpperCase(Locale.ROOT);
@@ -50,6 +53,10 @@ public class AnttLinhaMapper {
         }
 
         return NAO_INFORMADO;
+    }
+
+    private boolean ehSiglaEstado(String valor) {
+        return valor.equalsIgnoreCase("GO") || valor.equalsIgnoreCase("DF");
     }
 
     private String extrairTerminal(String localidade) {

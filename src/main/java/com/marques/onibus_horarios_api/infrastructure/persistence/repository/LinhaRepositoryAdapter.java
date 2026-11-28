@@ -71,8 +71,8 @@ public class LinhaRepositoryAdapter implements LinhaRepository {
             int tamanho
     ){
         Page<LinhaEntity> resultado = linhaJpaRepository.buscarAtivas(
-                bairroOrigem,
-                terminalDestino,
+                    normalizarFiltro(bairroOrigem),
+                    normalizarFiltro(terminalDestino),
                 PageRequest.of(pagina, tamanho)
         );
 
@@ -88,5 +88,9 @@ public class LinhaRepositoryAdapter implements LinhaRepository {
                 resultado.getTotalElements(),
                 resultado.getTotalPages()
         );
+    }
+
+    private String normalizarFiltro(String filtro) {
+        return filtro == null ? "" : filtro.trim();
     }
 }

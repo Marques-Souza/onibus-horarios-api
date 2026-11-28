@@ -43,6 +43,7 @@ public class JwtSecurityConfiguration {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/linhas", "/api/v1/linhas/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/horarios", "/api/v1/horarios/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/linhas", "/api/v1/linhas/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/linhas/**").hasRole("ADMIN")
