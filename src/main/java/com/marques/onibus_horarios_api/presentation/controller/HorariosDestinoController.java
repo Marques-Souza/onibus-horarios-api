@@ -28,7 +28,6 @@ public class HorariosDestinoController {
     public ResponseEntity<HorariosBuscaResponse> listarPorDestino(
             @RequestParam(required = false) String origem,
             @RequestParam(required = false) String destino,
-            @RequestParam(required = false) String terminalDestino,
             @RequestParam(required = false) String codigoLinha,
             @RequestParam(required = false) String bairroOrigem,
             @RequestParam(required = false) Sentido sentido,
@@ -37,7 +36,7 @@ public class HorariosDestinoController {
         return ResponseEntity.ok(
                 horarioService.buscarHorarios(
                         origem,
-                        destino == null ? terminalDestino : destino,
+                        destino,
                         codigoLinha,
                         bairroOrigem,
                         sentido,
@@ -50,17 +49,16 @@ public class HorariosDestinoController {
     public ResponseEntity<ProximasSaidasResponse> listarProximasSaidas(
             @RequestParam(required = false) String origem,
             @RequestParam(required = false) String destino,
-            @RequestParam(required = false) String terminalDestino,
             @RequestParam(required = false) String codigoLinha,
             @RequestParam(required = false) String bairroOrigem,
-            @RequestParam(required = false) Sentido sentido,
+            @RequestParam Sentido sentido,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dataHora
     ) {
         return ResponseEntity.ok(
                 horarioService.buscarProximasSaidas(
                         origem,
-                        destino == null ? terminalDestino : destino,
+                        destino,
                         codigoLinha,
                         bairroOrigem,
                         sentido,

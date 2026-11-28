@@ -50,14 +50,6 @@ public class LinhaRepositoryAdapter implements LinhaRepository {
     }
 
     @Override
-    public List<Linha> findAllByActiveTrue() {
-        return linhaJpaRepository.findAllByActiveTrue()
-                .stream()
-                .map(linhaPersistenceMapper::toDomain)
-                .toList();
-    }
-
-    @Override
     public Optional<Linha> findByCodigo(String codigo) {
         return linhaJpaRepository.findByCodigo(codigo)
                 .map(linhaPersistenceMapper::toDomain);

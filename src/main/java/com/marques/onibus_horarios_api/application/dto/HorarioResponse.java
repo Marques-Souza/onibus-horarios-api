@@ -2,6 +2,7 @@ package com.marques.onibus_horarios_api.application.dto;
 
 import com.marques.onibus_horarios_api.domain.model.Horario;
 import com.marques.onibus_horarios_api.domain.model.Linha;
+import com.marques.onibus_horarios_api.domain.model.Localidade;
 import com.marques.onibus_horarios_api.domain.model.Sentido;
 import com.marques.onibus_horarios_api.domain.model.TipoDia;
 
@@ -21,11 +22,11 @@ public record HorarioResponse(
 
     public static HorarioResponse from(Horario horario, Linha linha) {
         String origem = horario.sentido() == Sentido.IDA
-                ? "Águas Lindas de Goiás"
+                ? Localidade.AGUAS_LINDAS_DE_GOIAS
                 : linha.terminalDestino();
         String destino = horario.sentido() == Sentido.IDA
                 ? linha.terminalDestino()
-                : "Águas Lindas de Goiás";
+                : Localidade.AGUAS_LINDAS_DE_GOIAS;
 
         return new HorarioResponse(
                 horario.id(),

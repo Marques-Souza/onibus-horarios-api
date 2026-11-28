@@ -8,7 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,15 +19,15 @@ public interface LinhaJpaRepository extends JpaRepository<LinhaEntity, UUID> {
 
     Optional<LinhaEntity> findByIdAndActiveTrue(UUID id);
 
-    List<LinhaEntity> findAllByActiveTrue();
-
     Optional<LinhaEntity> findByCodigo(String codigo);
 
     @Query("""
         SELECT l FROM LinhaEntity l
         WHERE l.active = true
-          AND (:bairroOrigem = '' OR LOWER(l.bairroOrigem) LIKE LOWER(CONCAT('%', :bairroOrigem, '%')))
-          AND (:terminalDestino = '' OR LOWER(l.terminalDestino) LIKE LOWER(CONCAT('%', :terminalDestino, '%')))
+          AND (:bairroOrigem = '' OR CAST(FUNCTION('unaccent', LOWER(l.bairroOrigem)) AS string)
+              LIKE CAST(FUNCTION('unaccent', LOWER(CONCAT('%', :bairroOrigem, '%'))) AS string))
+          AND (:terminalDestino = '' OR CAST(FUNCTION('unaccent', LOWER(l.terminalDestino)) AS string)
+              LIKE CAST(FUNCTION('unaccent', LOWER(CONCAT('%', :terminalDestino, '%'))) AS string))
         ORDER BY l.codigo
         """)
     Page<LinhaEntity> buscarAtivas(

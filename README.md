@@ -78,17 +78,25 @@ Os testes usam PostgreSQL via Testcontainers e valores fictícios em `src/test/r
 | `PUT` | `/api/v1/linhas/{id}` | ADMIN | Atualiza uma linha |
 | `DELETE` | `/api/v1/linhas/{id}` | ADMIN | Desativa uma linha (soft delete) |
 | `GET` | `/api/v1/linhas/{linhaId}/horarios` | Público | Lista horários ativos da linha; filtros `sentido` e `tipoDia` |
-| `GET` | `/api/v1/horarios` | Público | Busca horários por origem, destino, código, bairro, sentido e tipo de dia |
-| `GET` | `/api/v1/horarios/proximas-saidas` | Público | Busca as próximas saídas para um trajeto |
+| `GET` | `/api/v1/horarios` | Público | Busca horários por origem, `destino`, código, bairro, sentido e tipo de dia |
+| `GET` | `/api/v1/horarios/proximas-saidas` | Público | Busca as próximas saídas para um trajeto; `sentido` é obrigatório |
 | `POST` | `/api/v1/admin/importacoes/antt` | ADMIN | Importa arquivo CSV da ANTT; campo multipart `arquivo` |
 | `GET` | `/actuator/health` | Público | Verifica a saúde da aplicação |
 
 Para rotas protegidas, envie o token no cabeçalho `Authorization: Bearer <token>`. Valores aceitos para `sentido`: `IDA` e `VOLTA`; para `tipoDia`: `DIA_UTIL`, `SABADO` e `DOMINGO_FERIADO`.
 
+Na busca de horários, `destino` é o único parâmetro aceito para o destino (não use o antigo alias `terminalDestino`). A busca textual não diferencia maiúsculas de minúsculas nem acentos. Na consulta de próximas saídas, `minutosParaSaida` informa o tempo até a primeira saída quando ela ocorre no mesmo dia; para uma saída em data futura, o campo é `null`. A classificação usa o fuso `America/Sao_Paulo`; sábado é `SABADO`, domingo é `DOMINGO_FERIADO` e dias de semana são `DIA_UTIL`.
+
 Exemplo de busca:
 
 ```text
 GET http://localhost:8087/api/v1/horarios?origem=AGUAS%20LINDAS%20DE%20GOIAS&destino=W3&sentido=IDA&tipoDia=DIA_UTIL
+```
+
+Exemplo de próximas saídas:
+
+```text
+GET http://localhost:8087/api/v1/horarios/proximas-saidas?destino=W3&sentido=IDA
 ```
 
 ## Importação do CSV da ANTT

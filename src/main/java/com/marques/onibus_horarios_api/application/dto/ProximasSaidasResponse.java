@@ -14,6 +14,7 @@ public record ProximasSaidasResponse(
         LocalDateTime dataHoraConsulta,
         LocalDate dataOperacao,
         TipoDia tipoDia,
+        Long minutosParaSaida,
         HorarioDestinoResponse proximaSaida,
         List<HorarioDestinoResponse> proximasSaidas
 ) {

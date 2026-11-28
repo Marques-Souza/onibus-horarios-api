@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -103,6 +104,11 @@ public class HorarioService {
             LocalDateTime dataHora
     ) {
         validarFiltrosDaBusca(origem, destino, codigoLinha, bairroOrigem);
+        if (sentido == null) {
+            throw new BuscaDeHorarioInvalidaException(
+                    "Informe o sentido da viagem (IDA ou VOLTA) para consultar próximas saídas."
+            );
+        }
 
         LocalDateTime dataHoraConsulta = dataHora == null
                 ? LocalDateTime.now(FUSO_BRASILIA)
@@ -136,6 +142,11 @@ public class HorarioService {
                         dataHoraConsulta,
                         dataOperacao,
                         tipoDia,
+                        dataOperacao.equals(dataHoraConsulta.toLocalDate())
+                                ? Duration.between(dataHoraConsulta, dataOperacao.atTime(
+                                        saidasDoDia.getFirst().horaPartida()
+                                )).toMinutes()
+                                : null,
                         saidasDoDia.getFirst(),
                         saidasDoDia
                 );
@@ -148,6 +159,7 @@ public class HorarioService {
                 normalizar(codigoLinha),
                 normalizar(bairroOrigem),
                 dataHoraConsulta,
+                null,
                 null,
                 null,
                 null,

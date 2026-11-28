@@ -270,6 +270,23 @@ class LinhaControllerIntegrationTest {
     }
 
     @Test
+    void deveExigirSentidoParaConsultarProximasSaidas() throws Exception {
+        mockMvc.perform(get("/api/v1/horarios/proximas-saidas")
+                        .queryParam("destino", "BRASILIA"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Parâmetro obrigatório ausente: sentido."));
+    }
+
+    @Test
+    void deveUsarDestinoComoUnicoParametroDeDestinoNaBuscaDeHorarios() throws Exception {
+        mockMvc.perform(get("/api/v1/horarios")
+                        .queryParam("terminalDestino", "BRASILIA"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
     void deveListarLinhasSemFiltrosSemAutenticacao() throws Exception {
         mockMvc.perform(get("/api/v1/linhas"))
                 .andExpect(status().isOk());
@@ -296,6 +313,32 @@ class LinhaControllerIntegrationTest {
                 .andExpect(jsonPath("$.tamanho").value(1))
                 .andExpect(jsonPath("$.totalElementos").value(2))
                 .andExpect(jsonPath("$.totalPaginas").value(2));
+    }
+
+    @Test
+    void deveBuscarLinhasEHorariosSemDiferenciarAcentos() throws Exception {
+        LinhaEntity linha = criarLinha("ACENTO-TESTE", "Brasília", true);
+        linha.setBairroOrigem("Ceilândia Norte");
+        linha.setNome("Águas Lindas de Goiás - Ceilândia");
+        linha = linhaRepository.save(linha);
+        criarHorario(linha, "IDA", "DIA_UTIL", "07:30", true);
+
+        mockMvc.perform(get("/api/v1/linhas")
+                        .queryParam("bairroOrigem", "ceilandia")
+                        .queryParam("terminalDestino", "brasilia"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElementos").value(1))
+                .andExpect(jsonPath("$.conteudo[0].codigo").value("ACENTO-TESTE"));
+
+        mockMvc.perform(get("/api/v1/horarios")
+                        .queryParam("origem", "aguas lindas")
+                        .queryParam("destino", "ceilandia")
+                        .queryParam("bairroOrigem", "ceilandia")
+                        .queryParam("sentido", "IDA")
+                        .queryParam("tipoDia", "DIA_UTIL"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.horarios.length()").value(1))
+                .andExpect(jsonPath("$.horarios[0].codigoLinha").value("ACENTO-TESTE"));
     }
 
     @Test
@@ -405,6 +448,7 @@ class LinhaControllerIntegrationTest {
                 .andExpect(jsonPath("$.dataHoraConsulta").value("2026-11-26T07:45:00"))
                 .andExpect(jsonPath("$.dataOperacao").value("2026-11-26"))
                 .andExpect(jsonPath("$.tipoDia").value("DIA_UTIL"))
+                .andExpect(jsonPath("$.minutosParaSaida").value(15))
                 .andExpect(jsonPath("$.proximaSaida.horaPartida").value("08:00:00"))
                 .andExpect(jsonPath("$.proximasSaidas.length()").value(1));
     }
@@ -422,6 +466,7 @@ class LinhaControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.dataOperacao").value("2026-11-28"))
                 .andExpect(jsonPath("$.tipoDia").value("SABADO"))
+                .andExpect(jsonPath("$.minutosParaSaida").isEmpty())
                 .andExpect(jsonPath("$.proximaSaida.horaPartida").value("08:00:00"))
                 .andExpect(jsonPath("$.proximasSaidas.length()").value(2));
     }

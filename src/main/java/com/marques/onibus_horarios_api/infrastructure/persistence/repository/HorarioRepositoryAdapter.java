@@ -9,16 +9,20 @@ import com.marques.onibus_horarios_api.domain.repository.HorarioRepository;
 import com.marques.onibus_horarios_api.infrastructure.persistence.entity.HorarioEntity;
 import com.marques.onibus_horarios_api.infrastructure.persistence.entity.LinhaEntity;
 import com.marques.onibus_horarios_api.infrastructure.persistence.mapper.HorarioPersistenceMapper;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Fetch;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
-import org.springframework.stereotype.Repository;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Expression;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Repository;
 
 import java.time.LocalTime;
 import java.text.Normalizer;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -84,6 +88,7 @@ public class HorarioRepositoryAdapter implements HorarioRepository {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public List<HorarioDaLinha> buscarAtivosPorTrajeto(
             String origem,
             String destino,
@@ -93,11 +98,12 @@ public class HorarioRepositoryAdapter implements HorarioRepository {
             TipoDia tipoDia
     ) {
         Specification<HorarioEntity> specification = (root, query, builder) -> {
-            Join<HorarioEntity, LinhaEntity> linha = root.join("linha", JoinType.INNER);
-            root.fetch("linha", JoinType.INNER);
+            Fetch<HorarioEntity, LinhaEntity> linhaFetch =
+                    root.<HorarioEntity, LinhaEntity>fetch("linha", JoinType.INNER);
+            Join<HorarioEntity, LinhaEntity> linha = (Join<HorarioEntity, LinhaEntity>) linhaFetch;
             query.distinct(true);
 
-            var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
+            var predicates = new ArrayList<Predicate>();
             predicates.add(builder.isTrue(root.get("active")));
             predicates.add(builder.isTrue(linha.get("active")));
 
@@ -115,20 +121,23 @@ public class HorarioRepositoryAdapter implements HorarioRepository {
             }
             if (bairroOrigem != null && !bairroOrigem.isBlank()) {
                 predicates.add(builder.like(
-                        builder.lower(linha.get("bairroOrigem")),
-                        contem(bairroOrigem)
+                        semAcentos(builder, linha.get("bairroOrigem")),
+                        contemNormalizado(bairroOrigem)
                 ));
             }
             if (origem != null && !origem.isBlank()) {
                 var origemNormalizada = normalizarTexto(origem);
                 boolean origemAguasLindas = origemNormalizada.contains("aguas lindas");
                 var origemNoDistritoFederal = builder.or(
-                        builder.like(builder.lower(linha.get("terminalDestino")), contem(origem)),
-                        builder.like(builder.lower(linha.get("nome")), contem(origem))
+                        builder.like(semAcentos(builder, linha.get("terminalDestino")), contemNormalizado(origem)),
+                        builder.like(semAcentos(builder, linha.get("nome")), contemNormalizado(origem))
                 );
                 var origemEmAguasLindas = origemAguasLindas
                         ? builder.conjunction()
-                        : builder.like(builder.lower(linha.get("bairroOrigem")), contem(origem));
+                        : builder.like(
+                                semAcentos(builder, linha.get("bairroOrigem")),
+                                contemNormalizado(origem)
+                        );
 
                 predicates.add(builder.or(
                         builder.and(
@@ -145,12 +154,15 @@ public class HorarioRepositoryAdapter implements HorarioRepository {
                 var destinoNormalizado = normalizarTexto(destino);
                 boolean destinoAguasLindas = destinoNormalizado.contains("aguas lindas");
                 var destinoNoDistritoFederal = builder.or(
-                        builder.like(builder.lower(linha.get("terminalDestino")), contem(destino)),
-                        builder.like(builder.lower(linha.get("nome")), contem(destino))
+                        builder.like(semAcentos(builder, linha.get("terminalDestino")), contemNormalizado(destino)),
+                        builder.like(semAcentos(builder, linha.get("nome")), contemNormalizado(destino))
                 );
                 var destinoEmAguasLindas = destinoAguasLindas
                         ? builder.conjunction()
-                        : builder.like(builder.lower(linha.get("bairroOrigem")), contem(destino));
+                        : builder.like(
+                                semAcentos(builder, linha.get("bairroOrigem")),
+                                contemNormalizado(destino)
+                        );
 
                 predicates.add(builder.or(
                         builder.and(
@@ -164,7 +176,7 @@ public class HorarioRepositoryAdapter implements HorarioRepository {
                 ));
             }
 
-            return builder.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
+            return builder.and(predicates.toArray(Predicate[]::new));
         };
 
         return horarioJpaRepository.findAll(
@@ -179,8 +191,12 @@ public class HorarioRepositoryAdapter implements HorarioRepository {
                 .toList();
     }
 
-    private String contem(String valor) {
-        return "%" + valor.trim().toLowerCase(Locale.ROOT) + "%";
+    private String contemNormalizado(String valor) {
+        return "%" + normalizarTexto(valor) + "%";
+    }
+
+    private Expression<String> semAcentos(CriteriaBuilder builder, Expression<String> campo) {
+        return builder.function("unaccent", String.class, builder.lower(campo));
     }
 
     private String normalizarTexto(String valor) {
