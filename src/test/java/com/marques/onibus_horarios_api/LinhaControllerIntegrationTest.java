@@ -13,14 +13,21 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -47,20 +54,10 @@ class LinhaControllerIntegrationTest {
 
     @Test
     void deveCadastrarLinhaERetornar201() throws Exception {
-        String request = """
-                {
-                  "codigo": "2001",
-                  "nome": "Águas Lindas - Brasília",
-                  "bairroOrigem": "Jardim da Barragem II",
-                  "terminalDestino": "Rodoviária do Plano Piloto",
-                  "operadora": "Global",
-                  "tarifa": 5.50
-                }
-                """;
-
         mockMvc.perform(post("/api/v1/linhas")
+                        .with(adminJwt())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
+                        .content(requisicaoLinha("2001", "Águas Lindas - Brasília")))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", startsWith("/api/v1/linhas/")))
                 .andExpect(jsonPath("$.codigo").value("2001"))
@@ -69,48 +66,129 @@ class LinhaControllerIntegrationTest {
 
     @Test
     void deveRetornar400QuandoRequisicaoForInvalida() throws Exception {
-        String request = """
-                {
-                  "codigo": "",
-                  "nome": "",
-                  "bairroOrigem": "",
-                  "terminalDestino": "",
-                  "operadora": "",
-                  "tarifa": 0
-                }
-                """;
-
         mockMvc.perform(post("/api/v1/linhas")
+                        .with(adminJwt())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(request))
+                        .content("""
+                                {
+                                  "codigo": "",
+                                  "nome": "",
+                                  "bairroOrigem": "",
+                                  "terminalDestino": "",
+                                  "operadora": "",
+                                  "tarifa": 0
+                                }
+                                """))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void deveRetornar409QuandoCodigoJaEstiverCadastrado() throws Exception {
-        String request = """
-                {
-                  "codigo": "2001",
-                  "nome": "Águas Lindas - Brasília",
-                  "bairroOrigem": "Jardim da Barragem II",
-                  "terminalDestino": "Rodoviária do Plano Piloto",
-                  "operadora": "Global",
-                  "tarifa": 5.50
-                }
-                """;
+        String request = requisicaoLinha("2001", "Águas Lindas - Brasília");
 
         mockMvc.perform(post("/api/v1/linhas")
+                        .with(adminJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(post("/api/v1/linhas")
+                        .with(adminJwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value(
                         "Já existe uma linha cadastrada com o código: 2001"
                 ));
+    }
+
+    @Test
+    void deveRetornar401AoCadastrarLinhaSemAutenticacao() throws Exception {
+        mockMvc.perform(post("/api/v1/linhas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoLinha("2001", "Linha protegida")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deveRetornar403AoCadastrarLinhaSemPerfilAdmin() throws Exception {
+        mockMvc.perform(post("/api/v1/linhas")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_USER")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoLinha("2001", "Linha protegida")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deveAtualizarLinhaComPerfilAdmin() throws Exception {
+        LinhaEntity linha = criarLinha("2001", "BRASILIA", true);
+
+        mockMvc.perform(put("/api/v1/linhas/{id}", linha.getId())
+                        .with(adminJwt())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requisicaoLinha("2001", "Linha atualizada")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Linha atualizada"));
+    }
+
+    @Test
+    void deveDesativarLinhaSemExcluirFisicamente() throws Exception {
+        LinhaEntity linha = criarLinha("2001", "BRASILIA", true);
+
+        mockMvc.perform(delete("/api/v1/linhas/{id}", linha.getId())
+                        .with(adminJwt()))
+                .andExpect(status().isNoContent());
+
+        org.assertj.core.api.Assertions.assertThat(linhaRepository.findById(linha.getId()))
+                .isPresent()
+                .get()
+                .extracting(LinhaEntity::isActive)
+                .isEqualTo(false);
+    }
+
+    @Test
+    void deveAutenticarAdminComCredenciaisValidas() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"test-admin","password":"test-admin-password"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.tokenType").value("Bearer"));
+    }
+
+    @Test
+    void deveRetornar401ComCredenciaisInvalidas() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"test-admin","password":"wrong-password"}
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deveRetornar422QuandoCsvValidoNaoContiverRotasDaCidadeAtendida() throws Exception {
+        String csv = """
+                Informativo 1
+                Informativo 2
+                Informativo 3
+                Informativo 4
+                Empresa;Prefixo;Localidade;Codigo;Nome;Sentido;Horario;Dias uteis;Sabado;Domingo;Extra
+                Operadora;123;GOIANIA/GO-BRASILIA/DF;2001;Linha teste;SENTIDO GO-DF;7:30;1;0;0;-
+                """;
+        MockMultipartFile arquivo = new MockMultipartFile(
+                "arquivo",
+                "linhas.csv",
+                "text/csv",
+                csv.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        );
+
+        mockMvc.perform(multipart("/api/v1/admin/importacoes/antt")
+                        .file(arquivo)
+                        .with(adminJwt()))
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test
@@ -130,6 +208,25 @@ class LinhaControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/linhas")
                         .queryParam("terminalDestino", "BRASILIA"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void deveFiltrarLinhasEAplicarPaginacao() throws Exception {
+        criarLinha("2501", "TAGUATINGA", true);
+        criarLinha("2502", "TAGUATINGA", true);
+        criarLinha("2503", "CEILANDIA", true);
+
+        mockMvc.perform(get("/api/v1/linhas")
+                        .queryParam("bairroOrigem", "Centro")
+                        .queryParam("terminalDestino", "TAGUATINGA")
+                        .queryParam("pagina", "0")
+                        .queryParam("tamanho", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.conteudo.length()").value(1))
+                .andExpect(jsonPath("$.numero").value(0))
+                .andExpect(jsonPath("$.tamanho").value(1))
+                .andExpect(jsonPath("$.totalElementos").value(2))
+                .andExpect(jsonPath("$.totalPaginas").value(2));
     }
 
     @Test
@@ -277,6 +374,23 @@ class LinhaControllerIntegrationTest {
 
     private LinhaEntity criarLinhaParaConsultaDeHorarios() {
         return criarLinha("HORARIO-TESTE", "Brasília", true);
+    }
+
+    private String requisicaoLinha(String codigo, String nome) {
+        return """
+                {
+                  "codigo": "%s",
+                  "nome": "%s",
+                  "bairroOrigem": "Jardim da Barragem II",
+                  "terminalDestino": "Rodoviária do Plano Piloto",
+                  "operadora": "Global",
+                  "tarifa": 5.50
+                }
+                """.formatted(codigo, nome);
+    }
+
+    private org.springframework.test.web.servlet.request.RequestPostProcessor adminJwt() {
+        return jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }
 
     private LinhaEntity criarLinha(String codigo, String terminalDestino, boolean active) {

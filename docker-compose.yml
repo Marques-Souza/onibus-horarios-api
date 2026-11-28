@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: onibus-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: onibus_db
+      POSTGRES_USER: ${DB_USER:-onibus_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-onibus_dev_password}
+    ports:
+      - "5455:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
