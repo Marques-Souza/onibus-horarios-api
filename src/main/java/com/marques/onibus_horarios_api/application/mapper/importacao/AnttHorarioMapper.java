@@ -7,6 +7,12 @@ import com.marques.onibus_horarios_api.domain.model.TipoDia;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
+import java.time.format.SignStyle;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -15,9 +21,16 @@ import java.util.UUID;
 @Component
 public class AnttHorarioMapper {
 
+    private static final DateTimeFormatter FORMATO_HORA = new DateTimeFormatterBuilder()
+            .appendValue(ChronoField.HOUR_OF_DAY, 1, 2, SignStyle.NOT_NEGATIVE)
+            .appendLiteral(':')
+            .appendValue(ChronoField.MINUTE_OF_HOUR, 2)
+            .toFormatter(Locale.ROOT)
+            .withResolverStyle(ResolverStyle.STRICT);
+
     public List<Horario> toDomain(AnttHorarioCsv registro, UUID linhaId) {
         Sentido sentido = converterSentido(registro.sentido());
-        LocalTime horaPartida = LocalTime.parse(registro.horario().trim());
+        LocalTime horaPartida = converterHorario(registro);
         List<Horario> horarios = new ArrayList<>();
 
         if (flagAtiva(registro.diasUteis(), "DIAS ÚTEIS")) {
@@ -31,6 +44,19 @@ public class AnttHorarioMapper {
         }
 
         return List.copyOf(horarios);
+    }
+
+    private LocalTime converterHorario(AnttHorarioCsv registro) {
+        try {
+            return LocalTime.parse(registro.horario().trim(), FORMATO_HORA);
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException(
+                    "Horário inválido na linha " + registro.numeroLinhaCsv()
+                            + " do CSV: '" + registro.horario()
+                            + "'. Use o formato H:mm ou HH:mm.",
+                    exception
+            );
+        }
     }
 
     private Sentido converterSentido(String valor) {

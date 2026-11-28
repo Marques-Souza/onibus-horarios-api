@@ -11,6 +11,7 @@ public record AnttHorarioCsv(
         String horario,
         String diasUteis,
         String sabado,
-        String domingo
+        String domingo,
+        long numeroLinhaCsv
 ) {
 }

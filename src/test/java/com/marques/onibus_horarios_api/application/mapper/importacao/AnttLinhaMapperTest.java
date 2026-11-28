@@ -21,7 +21,8 @@ class AnttLinhaMapperTest {
                 "04:15",
                 "1",
                 "0",
-                "0"
+                "0",
+                6
         );
 
         var linha = mapper.toDomain(registro, null);

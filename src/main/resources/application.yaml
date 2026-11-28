@@ -25,4 +25,5 @@ app:
     jwt:
       secret: ${ADMIN_JWT_SECRET}
 
-serve: 8087
+server:
+  port: 8087

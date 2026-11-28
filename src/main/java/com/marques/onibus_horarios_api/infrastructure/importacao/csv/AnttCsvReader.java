@@ -9,7 +9,11 @@ import org.springframework.stereotype.Component;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.StringReader;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,9 +26,11 @@ public class AnttCsvReader implements LeitorAnttCsv {
 
     @Override
     public List<AnttHorarioCsv> ler(InputStream arquivo) throws IOException {
-        try (var reader = new BufferedReader(
-                new InputStreamReader(arquivo, StandardCharsets.UTF_8)
-        )) {
+        byte[] conteudo;
+        try (arquivo) {
+            conteudo = arquivo.readAllBytes();
+        }
+        try (var reader = new BufferedReader(new StringReader(decodificar(conteudo)))) {
             ignorarLinhasInformativas(reader);
 
             var formato = CSVFormat.DEFAULT.builder()
@@ -59,13 +65,39 @@ public class AnttCsvReader implements LeitorAnttCsv {
                             registro.get(6),
                             registro.get(7),
                             registro.get(8),
-                            registro.get(9)
+                            registro.get(9),
+                            LINHAS_INFORMATIVAS + parser.getCurrentLineNumber()
                     ));
                 }
 
                 return List.copyOf(registros);
             }
         }
+    }
+
+    private String decodificar(byte[] conteudo) throws IOException {
+        try {
+            String textoUtf8 = decodificar(conteudo, StandardCharsets.UTF_8);
+            if (!textoUtf8.contains("\uFFFD")) {
+                return textoUtf8;
+            }
+        } catch (CharacterCodingException ignored) {
+            // Tenta os charsets legados usados em arquivos CSV.
+        }
+
+        try {
+            return decodificar(conteudo, Charset.forName("windows-1252"));
+        } catch (CharacterCodingException ignored) {
+            return decodificar(conteudo, StandardCharsets.ISO_8859_1);
+        }
+    }
+
+    private String decodificar(byte[] conteudo, Charset charset) throws CharacterCodingException {
+        return charset.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(conteudo))
+                .toString();
     }
 
     private void ignorarLinhasInformativas(BufferedReader reader) throws IOException {

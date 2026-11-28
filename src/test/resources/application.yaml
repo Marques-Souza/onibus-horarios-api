@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5455/onibus_db
+    username: test-db-user
+    password: test-db-password
+
+app:
+  security:
+    admin:
+      username: test-admin
+      password: test-admin-password
+    jwt:
+      secret: dGVzdC1zZWNyZXQtdGhhdC1pcy1hdC1sZWFzdC10aGlydHktdHdvLWJ5dGVz
